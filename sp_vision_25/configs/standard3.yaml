@@ -38,7 +38,7 @@ outpost_max_temp_lost_count: 75
 
 #####-----aimer参数-----#####
 yaw_offset: 2.0 # degree -2.5
-pitch_offset: 17.5 # degree 2
+pitch_offset: 2 # degree 2
 comming_angle: 55 # degree
 leaving_angle: 20 # degree
 decision_speed: 7 # rad/s
@@ -56,10 +56,10 @@ exposure_ms: 2.5
 gain: 16.9
 vid_pid: "2bdf:0001"
 
+#  0 -1  0
 #  1  0  0
-#  0  1  0
 #  0  0  1
-R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+R_gimbal2imubody: [0, -1, 0, 1, 0, 0, 0, 0, 1]
 
 # 重投影误差: 0.1820px
 camera_matrix: [1785.4881526822305, 0, 672.4806478241826, 0, 1785.026019470562, 559.89603224794314, 0, 0, 1]

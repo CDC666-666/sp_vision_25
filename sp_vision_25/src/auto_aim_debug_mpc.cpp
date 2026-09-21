@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <thread>
@@ -25,6 +26,7 @@ using namespace std::chrono_literals;
 // 该调试程序只需要一个位置参数：配置文件路径；未传入时使用 configs/sentry.yaml。
 const std::string keys =
   "{help h usage ? |                        | 输出命令行参数说明}"
+  "{pitch-debug    |                        | 每秒记录pitch指令、姿态和控制状态 }"
   "{@config-path   | configs/sentry.yaml | 位置参数，yaml配置文件路径 }";
 
 int main(int argc, char * argv[])
@@ -40,13 +42,14 @@ int main(int argc, char * argv[])
     cli.printMessage();
     return 0;
   }
+  const bool pitch_debug = cli.has("pitch-debug");
 
   // 硬件/算法模块均从同一份 yaml 配置初始化，保证相机、云台、识别、解算、跟踪、
   // 规划使用一致的内参、外参和调参项。
   io::Gimbal gimbal(config_path);
   io::Camera camera(config_path);
 
-  auto_aim::YOLO yolo(config_path, true);
+  auto_aim::YOLO yolo(config_path, false);
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Planner planner(config_path);
@@ -56,12 +59,24 @@ int main(int argc, char * argv[])
   tools::ThreadSafeQueue<std::optional<auto_aim::Target>, true> target_queue(1);
   target_queue.push(std::nullopt);
 
+  // 诊断使用曝光时刻的姿态，不额外消费串口四元数队列。
+  struct PitchObservation
+  {
+    bool valid = false;
+    double imu_pitch = 0;
+    double vision_pitch = 0;
+    std::chrono::steady_clock::time_point timestamp;
+  };
+  PitchObservation pitch_observation;
+  std::mutex pitch_observation_mutex;
+
   // quit 用于通知规划线程退出。规划线程独立以约 100 Hz 运行，
   // 即使视觉帧率波动，也能持续向云台发送最近一次目标对应的规划结果。
   std::atomic<bool> quit = false;
   auto plan_thread = std::thread([&]() {
     // t0 是绘图时间轴的起点；last_bullet_count 用于通过弹丸计数变化判断是否真的发射。
     auto t0 = std::chrono::steady_clock::now();
+    auto last_pitch_log = t0;
     uint16_t last_bullet_count = 0;
 
     while (!quit) {
@@ -69,6 +84,34 @@ int main(int argc, char * argv[])
       auto target = target_queue.front();
       auto gs = gimbal.state();
       auto plan = planner.plan(target, gs.bullet_speed);
+
+      const auto log_time = std::chrono::steady_clock::now();
+      if (pitch_debug && log_time - last_pitch_log >= 1s) {
+        last_pitch_log = log_time;
+        PitchObservation observation;
+        {
+          std::lock_guard<std::mutex> lock(pitch_observation_mutex);
+          observation = pitch_observation;
+        }
+        if (observation.valid) {
+          constexpr double rad2deg = 180.0 / CV_PI;
+          // 当前电控AUTO_AIM分支用 -plan.pitch 作为限幅前的IMU目标。
+          // gs.pitch来自电机相对中位角，与四元数计算出的IMU pitch不是同一个零点。
+          tools::logger()->info(
+            "[DEBUG-pitch] control={} mode={} target_up_deg={:.2f} fw_request_deg={:.2f} "
+            "imu_deg={:.2f} joint_deg={:.2f} zero_est_deg={:.2f} vision_deg={:.2f} "
+            "pose_age_ms={:.0f}",
+            plan.control, gimbal.str(gimbal.mode()), -plan.target_pitch * rad2deg,
+            -plan.pitch * rad2deg, observation.imu_pitch * rad2deg, gs.pitch * rad2deg,
+            (observation.imu_pitch - gs.pitch) * rad2deg, observation.vision_pitch * rad2deg,
+            tools::delta_time(log_time, observation.timestamp) * 1000);
+          if (plan.control) {
+            tools::logger()->info(
+              "[DEBUG-pitch] aim_range_m={:.3f} aim_z_m={:.3f} bullet_speed_mps={:.2f}",
+              planner.debug_xyza.head<2>().norm(), planner.debug_xyza[2], gs.bullet_speed);
+          }
+        }
+      }
 
       // 将规划输出下发给云台：包含控制使能、开火标志，以及 yaw/pitch 的位置、
       // 速度、加速度参考量。MPC 调试时主要观察这些量与云台反馈之间的关系。
@@ -132,6 +175,7 @@ int main(int argc, char * argv[])
   // 让视觉解算使用尽量准确的相机曝光时刻外参。
   cv::Mat img;
   std::chrono::steady_clock::time_point t;
+  auto last_frame_time = std::chrono::steady_clock::now();
 
   while (!exiter.exit()) {
     // 读取一帧图像及其时间戳，然后查询该时刻云台姿态四元数。
@@ -140,6 +184,13 @@ int main(int argc, char * argv[])
 
     // 更新解算器中的云台到世界坐标系旋转，用于把图像检测结果解算到世界/云台相关坐标。
     solver.set_R_gimbal2world(q);
+    if (pitch_debug) {
+      std::lock_guard<std::mutex> lock(pitch_observation_mutex);
+      pitch_observation.valid = true;
+      pitch_observation.imu_pitch = tools::eulers(q, 2, 1, 0)[1];
+      pitch_observation.vision_pitch = tools::eulers(solver.R_gimbal2world(), 2, 1, 0)[1];
+      pitch_observation.timestamp = t;
+    }
     // 识别装甲板，随后交给 tracker 做时序关联和 EKF 状态更新。
     auto armors = yolo.detect(img);
     auto targets = tracker.track(armors, t);
@@ -171,6 +222,11 @@ int main(int argc, char * argv[])
     }
 
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
+    const auto now = std::chrono::steady_clock::now();
+    const auto fps_text = fmt::format("FPS: {:.1f}", 1.0 / tools::delta_time(now, last_frame_time));
+    last_frame_time = now;
+    const auto text_width = cv::getTextSize(fps_text, cv::FONT_HERSHEY_SIMPLEX, 0.7, 2, nullptr).width;
+    tools::draw_text(img, fps_text, {img.cols - text_width - 10, 30}, {0, 255, 0}, 0.7);
     cv::imshow("reprojection", img);
     auto key = cv::waitKey(1);
     if (key == 'q') break;

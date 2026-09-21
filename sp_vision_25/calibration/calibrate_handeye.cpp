@@ -6,12 +6,14 @@
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
 
+#include "calibration/board.hpp"
 #include "tools/img_tools.hpp"
 #include "tools/math_tools.hpp"
 
 const std::string keys =
   "{help h usage ? |                          | 输出命令行参数说明}"
   "{config-path c  | configs/calibration.yaml | yaml配置文件路径 }"
+  "{no-display     |                          | 不显示图片，连续计算 }"
   "{@input-folder  | assets/img_with_q        | 输入文件夹路径   }";
 
 std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float center_distance)
@@ -29,20 +31,25 @@ Eigen::Quaterniond read_q(const std::string & q_path)
 {
   std::ifstream q_file(q_path);
   double w, x, y, z;
-  q_file >> w >> x >> y >> z;
-  return {w, x, y, z};
+  if (!(q_file >> w >> x >> y >> z))
+    throw std::runtime_error("无法读取四元数: " + q_path);
+  Eigen::Quaterniond q(w, x, y, z);
+  if (!q.coeffs().allFinite() || q.norm() < 1e-6)
+    throw std::runtime_error("四元数无效: " + q_path);
+  return q.normalized();
 }
 
 void load(
   const std::string & input_folder, const std::string & config_path,
   std::vector<double> & R_gimbal2imubody_data, std::vector<cv::Mat> & R_gimbal2world_list,
   std::vector<cv::Mat> & t_gimbal2world_list, std::vector<cv::Mat> & rvecs,
-  std::vector<cv::Mat> & tvecs)
+  std::vector<cv::Mat> & tvecs, bool display)
 {
   // 读取yaml参数
   auto yaml = YAML::LoadFile(config_path);
   auto pattern_cols = yaml["pattern_cols"].as<int>();
   auto pattern_rows = yaml["pattern_rows"].as<int>();
+  auto pattern_type = yaml["pattern_type"].as<std::string>("circles");
   auto center_distance_mm = yaml["center_distance_mm"].as<double>();
   R_gimbal2imubody_data = yaml["R_gimbal2imubody"].as<std::vector<double>>();
   auto camera_matrix_data = yaml["camera_matrix"].as<std::vector<double>>();
@@ -58,8 +65,8 @@ void load(
     auto img_path = fmt::format("{}/{}.jpg", input_folder, i);
     auto q_path = fmt::format("{}/{}.txt", input_folder, i);
     auto img = cv::imread(img_path);
-    Eigen::Quaterniond q = read_q(q_path);
     if (img.empty()) break;
+    Eigen::Quaterniond q = read_q(q_path);
 
     // 计算云台的欧拉角
     Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
@@ -75,13 +82,15 @@ void load(
 
     // 识别标定板
     std::vector<cv::Point2f> centers_2d;
-    auto success = cv::findCirclesGrid(img, pattern_size, centers_2d);  // 默认是对称圆点图案
+    auto success = calibration::find_board_points(img, pattern_size, pattern_type, centers_2d);
 
     // 显示识别结果
     cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
     cv::resize(drawing, drawing, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
-    cv::imshow("Press any to continue", drawing);
-    cv::waitKey(0);
+    if (display) {
+      cv::imshow("Press any to continue", drawing);
+      cv::waitKey(0);
+    }
 
     // 输出识别结果
     fmt::print("[{}] {}\n", success ? "success" : "failure", img_path);
@@ -148,7 +157,11 @@ int main(int argc, char * argv[])
   std::vector<cv::Mat> rvecs, tvecs;
   load(
     input_folder, config_path, R_gimbal2imubody_data, R_gimbal2world_list, t_gimbal2world_list,
-    rvecs, tvecs);
+    rvecs, tvecs, !cli.has("no-display"));
+  if (rvecs.size() < 3) {
+    fmt::print(stderr, "至少需要3组有效手眼数据，当前只有{}组\n", rvecs.size());
+    return 1;
+  }
 
   // 手眼标定
   cv::Mat R_camera2gimbal, t_camera2gimbal;

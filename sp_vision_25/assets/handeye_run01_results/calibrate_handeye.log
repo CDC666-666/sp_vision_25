@@ -1,0 +1,37 @@
+[success] assets/handeye_run01/1.jpg
+[success] assets/handeye_run01/2.jpg
+[success] assets/handeye_run01/3.jpg
+[success] assets/handeye_run01/4.jpg
+[success] assets/handeye_run01/5.jpg
+[success] assets/handeye_run01/6.jpg
+[success] assets/handeye_run01/7.jpg
+[success] assets/handeye_run01/8.jpg
+[success] assets/handeye_run01/9.jpg
+[success] assets/handeye_run01/10.jpg
+[success] assets/handeye_run01/11.jpg
+[success] assets/handeye_run01/12.jpg
+[success] assets/handeye_run01/13.jpg
+[success] assets/handeye_run01/14.jpg
+[success] assets/handeye_run01/15.jpg
+[success] assets/handeye_run01/16.jpg
+[success] assets/handeye_run01/17.jpg
+[success] assets/handeye_run01/18.jpg
+[success] assets/handeye_run01/19.jpg
+[success] assets/handeye_run01/20.jpg
+[success] assets/handeye_run01/21.jpg
+[success] assets/handeye_run01/22.jpg
+[success] assets/handeye_run01/23.jpg
+[success] assets/handeye_run01/24.jpg
+[success] assets/handeye_run01/25.jpg
+[success] assets/handeye_run01/26.jpg
+[success] assets/handeye_run01/27.jpg
+[success] assets/handeye_run01/28.jpg
+[success] assets/handeye_run01/29.jpg
+[success] assets/handeye_run01/30.jpg
+
+R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
+
+# 相机同理想情况的偏角: yaw-2.52 pitch-0.64 roll2.06 degree
+R_camera2gimbal: [0.04351460955426889, -0.012704068607747936, 0.99897201432079619, -0.9984044567152619, 0.035464609249567403, 0.043940895551618613, -0.035986380290913778, -0.99929018214509902, -0.01114057009190228]
+t_camera2gimbal: [0.048244529713460133, 0.020236083564561958, 0.089067242965961413]
+

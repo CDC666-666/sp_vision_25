@@ -37,8 +37,7 @@ private:
   std::thread capture_thread_;
   std::atomic<bool> capturing_;
   std::atomic<bool> capture_quit_;
-  // 容量为 1；满时丢弃旧帧，保留新图像及其原时间戳。
-  tools::ThreadSafeQueue<CameraData, true> queue_;
+  tools::ThreadSafeQueue<CameraData> queue_;
 
   int vid_, pid_;
 

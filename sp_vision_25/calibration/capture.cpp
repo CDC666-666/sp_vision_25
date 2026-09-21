@@ -1,11 +1,15 @@
 #include <fmt/core.h>
+#include <yaml-cpp/yaml.h>
 
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <opencv2/opencv.hpp>
 
+#include "calibration/board.hpp"
 #include "io/camera.hpp"
 #include "io/cboard.hpp"
+#include "io/gimbal/gimbal.hpp"
 #include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
@@ -24,10 +28,24 @@ void write_q(const std::string q_path, const Eigen::Quaterniond & q)
   q_file.close();
 }
 
-void capture_loop(
-  const std::string & config_path, const std::string & can, const std::string & output_folder)
+void capture_loop(const std::string & config_path, const std::string & output_folder)
 {
-  io::CBoard cboard(config_path);
+  auto yaml = YAML::LoadFile(config_path);
+  const cv::Size pattern_size(yaml["pattern_cols"].as<int>(), yaml["pattern_rows"].as<int>());
+  const auto pattern_type = yaml["pattern_type"].as<std::string>("circles");
+  const auto imu_source = yaml["imu_source"].as<std::string>("can");
+  std::unique_ptr<io::CBoard> cboard;
+  std::unique_ptr<io::Gimbal> gimbal;
+  tools::logger()->info(
+    "标定板: {}, {}列{}行, 姿态接口: {}", pattern_type, pattern_size.width, pattern_size.height,
+    imu_source);
+  if (imu_source == "serial")
+    gimbal = std::make_unique<io::Gimbal>(config_path);
+  else if (imu_source == "can")
+    cboard = std::make_unique<io::CBoard>(config_path);
+  else
+    throw std::runtime_error("imu_source must be 'serial' or 'can'");
+
   io::Camera camera(config_path);
   cv::Mat img;
   std::chrono::steady_clock::time_point timestamp;
@@ -35,7 +53,7 @@ void capture_loop(
   int count = 0;
   while (true) {
     camera.read(img, timestamp);
-    Eigen::Quaterniond q = cboard.imu_at(timestamp);
+    Eigen::Quaterniond q = gimbal ? gimbal->q(timestamp) : cboard->imu_at(timestamp);
 
     // 在图像上显示欧拉角，用来判断imuabs系的xyz正方向，同时判断imu是否存在零漂
     auto img_with_ypr = img.clone();
@@ -45,8 +63,8 @@ void capture_loop(
     tools::draw_text(img_with_ypr, fmt::format("X {:.2f}", zyx[2]), {40, 120}, {0, 0, 255});
 
     std::vector<cv::Point2f> centers_2d;
-    auto success = cv::findCirclesGrid(img, cv::Size(10, 7), centers_2d);  // 默认是对称圆点图案
-    cv::drawChessboardCorners(img_with_ypr, cv::Size(10, 7), centers_2d, success);  // 显示识别结果
+    auto success = calibration::find_board_points(img, pattern_size, pattern_type, centers_2d);
+    cv::drawChessboardCorners(img_with_ypr, pattern_size, centers_2d, success);
     cv::resize(img_with_ypr, img_with_ypr, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
 
     // 按“s”保存图片和对应四元数，按“q”退出程序
@@ -57,6 +75,11 @@ void capture_loop(
     else if (key != 's')
       continue;
 
+    if (!success) {
+      tools::logger()->warn("未识别完整标定板，请调整标定板后再保存");
+      continue;
+    }
+
     // 保存图片和四元数
     count++;
     auto img_path = fmt::format("{}/{}.jpg", output_folder, count);
@@ -66,7 +89,7 @@ void capture_loop(
     tools::logger()->info("[{}] Saved in {}", count, output_folder);
   }
 
-  // 离开该作用域时，camera和cboard会自动关闭
+  // 离开该作用域时，相机和姿态接口会自动关闭
 }
 
 int main(int argc, char * argv[])
@@ -80,12 +103,15 @@ int main(int argc, char * argv[])
   auto config_path = cli.get<std::string>(0);
   auto output_folder = cli.get<std::string>("output-folder");
 
-  // 新建输出文件夹
-  std::filesystem::create_directory(output_folder);
+  // 每次采集从1开始编号，避免覆盖或混入上一次的图片和四元数。
+  std::filesystem::create_directories(output_folder);
+  if (!std::filesystem::is_empty(output_folder)) {
+    tools::logger()->error("输出目录非空，请使用新的采集目录: {}", output_folder);
+    return 1;
+  }
 
-  tools::logger()->info("默认标定板尺寸为10列7行");
   // 主循环，保存图片和对应四元数
-  capture_loop(config_path, "can0", output_folder);
+  capture_loop(config_path, output_folder);
 
   tools::logger()->warn("注意四元数输出顺序为wxyz");
 

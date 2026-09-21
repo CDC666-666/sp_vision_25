@@ -4,11 +4,13 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 
+#include "calibration/board.hpp"
 #include "tools/img_tools.hpp"
 
 const std::string keys =
   "{help h usage ? |                          | 输出命令行参数说明}"
   "{config-path c  | configs/calibration.yaml | yaml配置文件路径 }"
+  "{no-display     |                          | 不显示图片，连续计算 }"
   "{@input-folder  | assets/img_with_q        | 输入文件夹路径   }";
 
 std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float center_distance)
@@ -25,12 +27,13 @@ std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float c
 void load(
   const std::string & input_folder, const std::string & config_path, cv::Size & img_size,
   std::vector<std::vector<cv::Point3f>> & obj_points,
-  std::vector<std::vector<cv::Point2f>> & img_points)
+  std::vector<std::vector<cv::Point2f>> & img_points, bool display)
 {
   // 读取yaml参数
   auto yaml = YAML::LoadFile(config_path);
   auto pattern_cols = yaml["pattern_cols"].as<int>();
   auto pattern_rows = yaml["pattern_rows"].as<int>();
+  auto pattern_type = yaml["pattern_type"].as<std::string>("circles");
   auto center_distance_mm = yaml["center_distance_mm"].as<double>();
   cv::Size pattern_size(pattern_cols, pattern_rows);
 
@@ -45,14 +48,16 @@ void load(
 
     // 识别标定板
     std::vector<cv::Point2f> centers_2d;
-    auto success = cv::findCirclesGrid(img, pattern_size, centers_2d, cv::CALIB_CB_SYMMETRIC_GRID);
+    auto success = calibration::find_board_points(img, pattern_size, pattern_type, centers_2d);
 
     // 显示识别结果
     auto drawing = img.clone();
     cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
     cv::resize(drawing, drawing, {}, 0.5, 0.5);  // 缩小图片尺寸便于显示完全
-    cv::imshow("Press any to continue", drawing);
-    cv::waitKey(0);
+    if (display) {
+      cv::imshow("Press any to continue", drawing);
+      cv::waitKey(0);
+    }
 
     // 输出识别结果
     fmt::print("[{}] {}\n", success ? "success" : "failure", img_path);
@@ -99,7 +104,11 @@ int main(int argc, char * argv[])
   cv::Size img_size;
   std::vector<std::vector<cv::Point3f>> obj_points;
   std::vector<std::vector<cv::Point2f>> img_points;
-  load(input_folder, config_path, img_size, obj_points, img_points);
+  load(input_folder, config_path, img_size, obj_points, img_points, !cli.has("no-display"));
+  if (obj_points.size() < 3) {
+    fmt::print(stderr, "至少需要3张有效标定图片，当前只有{}张\n", obj_points.size());
+    return 1;
+  }
 
   // 相机标定
   cv::Mat camera_matrix, distort_coeffs;

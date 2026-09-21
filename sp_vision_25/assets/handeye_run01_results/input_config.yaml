@@ -1,0 +1,21 @@
+# 黑白棋盘格：横向10个、纵向7个内角点（11×8个格子）；格子边长15 mm。
+pattern_type: chessboard
+pattern_cols: 10
+pattern_rows: 7
+center_distance_mm: 15
+
+# 使用与auto_aim_debug_mpc相同的串口姿态协议（io::Gimbal，四元数wxyz）。
+imu_source: serial
+com_port: "/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_3073357E3034-if00"
+
+camera_name: "hikrobot"
+exposure_ms: 2.5
+gain: 16.9
+vid_pid: "2bdf:0001"
+
+# 从standard3.yaml复制；标定前确认适用于当前IMU安装方向和相机/镜头。
+R_gimbal2imubody: [0, -1, 0, 1, 0, 0, 0, 0, 1]
+camera_matrix: [1774.188073, 0, 701.597601, 0, 1778.669619, 548.721539, 0, 0, 1]
+distort_coeffs: [-0.118146, 0.145350, -0.001019, -0.004101, 0.000000]
+
+# 离线求解会将R_camera2gimbal和t_camera2gimbal输出到终端，确认后填入standard3.yaml。

@@ -1,0 +1,25 @@
+# 2026-09-20: 已通过handeye_run02独立数据一致性复验，五项标定参数已同步standard3.yaml。
+# 黑白棋盘格：横向10个、纵向7个内角点（11×8个格子）；格子边长15 mm。
+pattern_type: chessboard
+pattern_cols: 10
+pattern_rows: 7
+center_distance_mm: 15
+
+# 使用与auto_aim_debug_mpc相同的串口姿态协议（io::Gimbal，四元数wxyz）。
+imu_source: serial
+com_port: "/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_3073357E3034-if00"
+
+camera_name: "hikrobot"
+exposure_ms: 2.5
+gain: 16.9
+vid_pid: "2bdf:0001"
+
+# 轴映射按串口INS坐标系及相机朝前约定推断；需实机确认方向。
+# 内参由handeye_run01的30张1440×1080图片重估；run02复验RMS偏差4.56 mm。
+R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
+camera_matrix: [1758.3221582579527, 0, 616.8676402586328, 0, 1754.776696645133, 592.6919205734052, 0, 0, 1]
+distort_coeffs: [-0.0778378237908365, 0.09783980306126952, 0.004202746072742955, -0.008161116790908984, 0]
+
+# 以下外参来自calibrate_robotworld_handeye；平移单位为米。
+R_camera2gimbal: [0.03420779763718286, -0.006533729401004698, 0.9993933844892751, -0.9987992592966356, 0.03486573754044772, 0.03441540315400422, -0.03506944837469756, -0.9993706473205399, -0.00533320399191343]
+t_camera2gimbal: [0.04743650171061373, 0.018919074669373308, 0.08907911106472413]

@@ -1,0 +1,35 @@
+[success] assets/handeye_run01/1.jpg
+[success] assets/handeye_run01/2.jpg
+[success] assets/handeye_run01/3.jpg
+[success] assets/handeye_run01/4.jpg
+[success] assets/handeye_run01/5.jpg
+[success] assets/handeye_run01/6.jpg
+[success] assets/handeye_run01/7.jpg
+[success] assets/handeye_run01/8.jpg
+[success] assets/handeye_run01/9.jpg
+[success] assets/handeye_run01/10.jpg
+[success] assets/handeye_run01/11.jpg
+[success] assets/handeye_run01/12.jpg
+[success] assets/handeye_run01/13.jpg
+[success] assets/handeye_run01/14.jpg
+[success] assets/handeye_run01/15.jpg
+[success] assets/handeye_run01/16.jpg
+[success] assets/handeye_run01/17.jpg
+[success] assets/handeye_run01/18.jpg
+[success] assets/handeye_run01/19.jpg
+[success] assets/handeye_run01/20.jpg
+[success] assets/handeye_run01/21.jpg
+[success] assets/handeye_run01/22.jpg
+[success] assets/handeye_run01/23.jpg
+[success] assets/handeye_run01/24.jpg
+[success] assets/handeye_run01/25.jpg
+[success] assets/handeye_run01/26.jpg
+[success] assets/handeye_run01/27.jpg
+[success] assets/handeye_run01/28.jpg
+[success] assets/handeye_run01/29.jpg
+[success] assets/handeye_run01/30.jpg
+
+# 重投影误差: 0.2670px
+camera_matrix: [1758.3221582579527, 0, 616.86764025863283, 0, 1754.7766966451329, 592.69192057340524, 0, 0, 1]
+distort_coeffs: [-0.077837823790836494, 0.09783980306126952, 0.0042027460727429551, -0.0081611167909089836, 0]
+

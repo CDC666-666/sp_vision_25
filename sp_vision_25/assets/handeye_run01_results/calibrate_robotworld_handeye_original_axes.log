@@ -1,0 +1,39 @@
+[success] assets/handeye_run01/1.jpg
+[success] assets/handeye_run01/2.jpg
+[success] assets/handeye_run01/3.jpg
+[success] assets/handeye_run01/4.jpg
+[success] assets/handeye_run01/5.jpg
+[success] assets/handeye_run01/6.jpg
+[success] assets/handeye_run01/7.jpg
+[success] assets/handeye_run01/8.jpg
+[success] assets/handeye_run01/9.jpg
+[success] assets/handeye_run01/10.jpg
+[success] assets/handeye_run01/11.jpg
+[success] assets/handeye_run01/12.jpg
+[success] assets/handeye_run01/13.jpg
+[success] assets/handeye_run01/14.jpg
+[success] assets/handeye_run01/15.jpg
+[success] assets/handeye_run01/16.jpg
+[success] assets/handeye_run01/17.jpg
+[success] assets/handeye_run01/18.jpg
+[success] assets/handeye_run01/19.jpg
+[success] assets/handeye_run01/20.jpg
+[success] assets/handeye_run01/21.jpg
+[success] assets/handeye_run01/22.jpg
+[success] assets/handeye_run01/23.jpg
+[success] assets/handeye_run01/24.jpg
+[success] assets/handeye_run01/25.jpg
+[success] assets/handeye_run01/26.jpg
+[success] assets/handeye_run01/27.jpg
+[success] assets/handeye_run01/28.jpg
+[success] assets/handeye_run01/29.jpg
+[success] assets/handeye_run01/30.jpg
+
+R_gimbal2imubody: [0, -1, 0, 1, 0, 0, 0, 0, 1]
+
+# 相机同理想情况的偏角: yaw-91.98 pitch-0.31 roll2.01 degree
+# 标定板到世界坐标系原点的水平距离: 0.96 m
+# 标定板同竖直摆放时的偏角: yaw118.78 pitch9.37 roll179.69 degree
+R_camera2gimbal: [0.99879925929663627, -0.034865737540456368, -0.034415403153976259, 0.034207797637154896, -0.0065337294010018284, 0.99939338448927584, -0.035069448374706005, -0.99937064732053982, -0.0053332039919113134]
+t_camera2gimbal: [-0.018919074669371223, 0.04743650171061408, 0.089079111064724381]
+

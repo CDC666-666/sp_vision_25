@@ -61,6 +61,10 @@ struct GimbalState
   float pitch_vel;
   float bullet_speed;
   uint16_t bullet_count;
+  // Latest received IMU pose for plotting; q(t) still owns the image-time queue.
+  Eigen::Quaterniond imu_q = Eigen::Quaterniond::Identity();
+  std::chrono::steady_clock::time_point imu_q_time{};
+  bool imu_q_valid = false;
 };
 
 class Gimbal
@@ -92,7 +96,7 @@ private:
   VisionToGimbal tx_data_;
 
   GimbalMode mode_ = GimbalMode::IDLE;
-  GimbalState state_;
+  GimbalState state_{};
   tools::ThreadSafeQueue<std::tuple<Eigen::Quaterniond, std::chrono::steady_clock::time_point>>
     queue_{1000};
 

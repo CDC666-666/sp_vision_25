@@ -1,5 +1,6 @@
 #include "solver.hpp"
 
+#include <cmath>
 #include <yaml-cpp/yaml.h>
 
 #include <vector>
@@ -44,6 +45,15 @@ Solver::Solver(const std::string & config_path) : R_gimbal2world_(Eigen::Matrix3
 }
 
 Eigen::Matrix3d Solver::R_gimbal2world() const { return R_gimbal2world_; }
+
+double Solver::gimbal_yaw_world(const Eigen::Quaterniond & q) const
+{
+  // Match the image solver's coordinate transform without reading its
+  // image-thread R_gimbal2world_ state or changing the control path.
+  const Eigen::Matrix3d R =
+    R_gimbal2imubody_.transpose() * q.toRotationMatrix() * R_gimbal2imubody_;
+  return std::atan2(R(1, 0), R(0, 0));
+}
 
 void Solver::set_R_gimbal2world(const Eigen::Quaterniond & q)
 {

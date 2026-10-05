@@ -1,5 +1,7 @@
 #include "gimbal.hpp"
 
+#include <cmath>
+
 #include "tools/crc.hpp"
 #include "tools/logger.hpp"
 #include "tools/math_tools.hpp"
@@ -174,6 +176,14 @@ void Gimbal::read_thread()
     state_.pitch_vel = rx_data_.pitch_vel;
     state_.bullet_speed = rx_data_.bullet_speed;
     state_.bullet_count = rx_data_.bullet_count;
+    // Keep a non-consuming snapshot for the planning-thread plot. Do not alter
+    // the original image-time quaternion queue or its interpolation behavior.
+    const double q_norm2 = q.squaredNorm();
+    state_.imu_q_valid = q.coeffs().allFinite() && std::isfinite(q_norm2) && q_norm2 > 1e-12;
+    if (state_.imu_q_valid) {
+      state_.imu_q = q.normalized();
+      state_.imu_q_time = t;
+    }
 
     switch (rx_data_.mode) {
       case 0:
@@ -200,6 +210,10 @@ void Gimbal::read_thread()
 
 void Gimbal::reconnect()
 {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    state_.imu_q_valid = false;
+  }
   int max_retry_count = 10;
   for (int i = 0; i < max_retry_count && !quit_; ++i) {
     tools::logger()->warn("[Gimbal] Reconnecting serial, attempt {}/{}...", i + 1, max_retry_count);

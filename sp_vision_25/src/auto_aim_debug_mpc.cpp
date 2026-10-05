@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -125,13 +126,31 @@ int main(int argc, char * argv[])
 
       // 组织一帧绘图数据。所有曲线共用同一个时间戳 t，便于在 plotter 中对齐观察。
       nlohmann::json data;
-      data["t"] = tools::delta_time(std::chrono::steady_clock::now(), t0);
+      const auto plot_time = std::chrono::steady_clock::now();
+      data["t"] = tools::delta_time(plot_time, t0);
 
-      // 云台反馈状态：实际 yaw/pitch 角度和角速度。
+      // 云台反馈状态：原 gimbal_yaw 是电机相对中值的关节角，不能直接与世界系 plan_yaw 相减。
       data["gimbal_yaw"] = gs.yaw;
       data["gimbal_yaw_vel"] = gs.yaw_vel;
       data["gimbal_pitch"] = gs.pitch;
       data["gimbal_pitch_vel"] = gs.pitch_vel;
+
+      // 最新有效 IMU 四元数的非消费快照。与下方规划角一起绘图时，
+      // 用 q_age_ms 检查姿态样本是否过旧；该时间戳是上位机识别帧头的时刻。
+      data["imu_q_valid"] = gs.imu_q_valid ? 1 : 0;
+      data["yaw_error_valid"] = gs.imu_q_valid && plan.control ? 1 : 0;
+      if (gs.imu_q_valid) {
+        const auto imu_R = gs.imu_q.toRotationMatrix();
+        const double imu_yaw_raw = std::atan2(imu_R(1, 0), imu_R(0, 0));
+        const double gimbal_yaw_world = solver.gimbal_yaw_world(gs.imu_q);
+        data["imu_yaw_raw"] = imu_yaw_raw;
+        data["gimbal_yaw_world"] = gimbal_yaw_world;
+        data["q_age_ms"] = tools::delta_time(plot_time, gs.imu_q_time) * 1000;
+        if (plan.control) {
+          const double delta = plan.yaw - gimbal_yaw_world;
+          data["yaw_error"] = std::atan2(std::sin(delta), std::cos(delta));
+        }
+      }
 
       // planner 计算出的目标瞄准角，通常用于观察目标解算位置对应的期望指向。
       data["target_yaw"] = plan.target_yaw;

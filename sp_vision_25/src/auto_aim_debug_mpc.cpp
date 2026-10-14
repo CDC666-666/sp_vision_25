@@ -199,6 +199,9 @@ int main(int argc, char * argv[])
   while (!exiter.exit()) {
     // 读取一帧图像及其时间戳，然后查询该时刻云台姿态四元数。
     camera.read(img, t);
+    // 保留相机原始帧供独立窗口显示；后续检测、绘制和缩放都会修改 img。
+    const cv::Mat raw_img = img.clone();
+    cv::imshow("camera_raw", raw_img);
     auto q = gimbal.q(t);
 
     // 更新解算器中的云台到世界坐标系旋转，用于把图像检测结果解算到世界/云台相关坐标。
